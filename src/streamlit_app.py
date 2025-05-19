@@ -75,7 +75,7 @@ def train_model(X, y):
     dataset = TensorDataset(X_tensor, y_tensor)
     loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
-    epochs = 10 # Reduced epochs for faster demonstration
+    epochs = 5 # Reduced epochs for faster demonstration
     model.train()
 
     progress_bar = st.progress(0)
