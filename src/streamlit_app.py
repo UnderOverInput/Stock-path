@@ -1,40 +1,142 @@
-import altair as alt
+# deploy it using streamlit where user can get any stock prediction 
+
+import streamlit as st
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 import pandas as pd
-import streamlit as st
+import datetime
+from sklearn.preprocessing import MinMaxScaler
+import yfinance as yf
+from torch.utils.data import TensorDataset, DataLoader
 
-"""
-# Welcome to Streamlit!
+# Define the LSTM Architecture (same as before)
+class StockPriceLSTM(nn.Module):
+    def __init__(self, input_size=5, hidden_size=64, num_layers=2, output_size=5, dropout=0.2):
+        super(StockPriceLSTM, self).__init__()
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
+                            batch_first=True, dropout=dropout)
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+        self.fc1 = nn.Linear(hidden_size, 64)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, output_size)
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+    def forward(self, x):
+        h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
+        out, _ = self.lstm(x, (h0,c0))
+        out = out[:, -1, :]
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+        out = self.relu(self.fc1(out))
+        out = self.relu(self.fc2(out))
+        out = self.fc3(out)
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
+        return out
 
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+# Function to get data and scale it
+@st.cache_data
+def load_and_preprocess_data(ticker, period='1y'):
+    data = yf.download(ticker, period=period)[['Open', 'High', 'Low', 'Close', 'Volume']]
+    data.dropna(inplace=True)
+
+    if len(data) < 60:
+        st.error("Insufficient data to make a prediction. Please try a different ticker or period.")
+        return None, None, None
+
+    scaler = MinMaxScaler()
+    scaled_data = scaler.fit_transform(data)
+
+    X, y = [], []
+    for i in range(60, len(scaled_data)):
+        X.append(scaled_data[i-60:i])
+        y.append(scaled_data[i])
+
+    X, y = np.array(X), np.array(y)
+
+    return X, y, scaler
+
+# Function to train the model
+@st.cache_resource
+def train_model(X, y):
+    model = StockPriceLSTM()
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    X_tensor = torch.tensor(X, dtype=torch.float32)
+    y_tensor = torch.tensor(y, dtype=torch.float32)
+
+    dataset = TensorDataset(X_tensor, y_tensor)
+    loader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+    epochs = 10 # Reduced epochs for faster demonstration
+    model.train()
+
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+
+    for epoch in range(epochs):
+        for i, (batch_X, batch_y) in enumerate(loader):
+            output = model(batch_X)
+            loss = criterion(output, batch_y)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        status_text.text(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+        progress_bar.progress((epoch + 1) / epochs)
+
+    return model
+
+# Streamlit App
+st.title("Stock Price Predictor (LSTM)")
+
+st.write("Enter a stock ticker symbol to predict the next day's Open, High, Low, Close, and Volume.")
+
+ticker_input = st.text_input("Stock Ticker (e.g., AAPL)", "AAPL").upper()
+
+if ticker_input:
+    st.write(f"Fetching data for {ticker_input}...")
+    X, y, scaler = load_and_preprocess_data(ticker_input)
+
+    if X is not None and y is not None and scaler is not None:
+        st.write("Data loaded and preprocessed successfully.")
+
+        # Display recent data
+        st.subheader("Recent Stock Data")
+        # Fetch the last few days of data to show
+        recent_data = yf.download(ticker_input, period='10d')[['Open', 'High', 'Low', 'Close', 'Volume']]
+        st.dataframe(recent_data)
+
+        st.write("Training the LSTM model...")
+        model = train_model(X, y)
+        st.write("Model training complete.")
+
+        st.subheader("Predicted Next Day's Values:")
+        model.eval()
+        with torch.no_grad():
+            # Take the last 60 days from the original scaled data
+            last_60_days = scaler.transform(yf.download(ticker_input, period='70d')[['Open', 'High', 'Low', 'Close', 'Volume']].dropna()[-60:]) # Fetch a bit more to ensure 60 days
+            input_tensor = torch.tensor(last_60_days, dtype=torch.float32).unsqueeze(0)
+
+            # Make prediction
+            predicted_scaled_data = model(input_tensor)
+
+            # Inverse transform
+            predicted_original_data = scaler.inverse_transform(predicted_scaled_data.numpy())
+
+        prediction = predicted_original_data[0]
+        st.write(f"Open: {prediction[0]:,.2f}")
+        st.write(f"High: {prediction[1]:,.2f}")
+        st.write(f"Low: {prediction[2]:,.2f}")
+        st.write(f"Close: {prediction[3]:,.2f}")
+        st.write(f"Volume: {prediction[4]:,.0f}")
+
+    else:
+        st.warning("Could not process data for the given ticker. Please ensure it's a valid ticker and sufficient data is available.")
+
