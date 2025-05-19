@@ -230,3 +230,34 @@ if st.button("Predict Next Day's Prices"):
 
         else:
             st.warning("Could not process data for the given ticker. Please ensure it's a valid ticker and sufficient data is available.")
+# add Q&A section
+st.subheader("Q&A Section")
+st.write("**Q: What is this application?**  \n"
+         "A: This application predicts the next day's stock prices using an LSTM neural network model trained on historical data.")
+st.write("**Q: How does the model work?**  \n"
+         "A: The model uses historical stock data (Open, High, Low, Close, Volume) to learn patterns and make predictions.")
+st.write("**Q: Is this model accurate?**  \n"
+         "A: The model's accuracy depends on the data and the training process. This is a demo model and should not be used for actual trading decisions.")
+st.write("**Q: Can I use this for any stock?**  \n"
+         "A: Yes, you can enter any valid stock ticker symbol. However, the model's performance may vary based on the stock's historical data.")
+st.write("**Q: How long does it take to get predictions?**  \n"
+         "A: The prediction time may vary based on the stock data size and model training. Generally, it takes a few seconds to a couple of minutes.")
+st.write("**Q: What if I get an error?**  \n"
+            "A: Please ensure you have entered a valid stock ticker symbol and that your internet connection is stable. If the issue persists, try again later.")
+st.write("**Q: Is there any risk in using this model?**  \n"
+         "A: Yes, this is a demo model and should not be used for actual trading decisions. Always do your own research and consult with a financial advisor before making investment decisions.")
+
+# Add a footer
+st.markdown(
+    """
+    <style>
+    .footer {
+        font-size: 12px;
+        color: #999;
+        text-align: center;
+        margin-top: 20px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
