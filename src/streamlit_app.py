@@ -17,7 +17,8 @@ class StockPriceLSTM(nn.Module):
         super(StockPriceLSTM, self).__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-
+        
+        
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
                             batch_first=True, dropout=dropout)
 
@@ -92,6 +93,44 @@ def train_model(X, y):
         progress_bar.progress((epoch + 1) / epochs)
 
     return model
+# Evluate the model with digrams and model accuracy with cool diagrams (take only 100 days of data)
+# Function to evaluate the model
+
+def evaluate_model(model, X, y):
+    model.eval()
+    X = X[-100:]  # Take only the last 100 days for evaluation
+    y = y[-100:]
+    with torch.no_grad():
+        X_tensor = torch.tensor(X, dtype=torch.float32)
+        y_tensor = torch.tensor(y, dtype=torch.float32)
+
+        predictions = model(X_tensor).numpy()
+        actuals = y_tensor.numpy()
+
+    # Calculate RMSE
+    rmse = np.sqrt(np.mean((predictions - actuals) ** 2))
+    st.write(f"RMSE: {rmse:.4f}")
+
+    # Plotting the results
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(14, 5))
+    plt.plot(actuals[:, 3], label='Actual Close Price', color='blue')
+    plt.plot(predictions[:, 3], label='Predicted Close Price', color='red')
+    plt.title('Stock Price Prediction')
+    plt.xlabel('Days')
+    plt.ylabel('Price')
+    plt.legend()
+    st.pyplot(plt)
+
+
+# Streamlit configuration
+st.set_page_config(
+    page_title="Stock Price Predictor",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
 # Streamlit App
 
@@ -157,6 +196,13 @@ if st.button("Predict Next Day's Prices"):
             model = train_model(X, y)
             st.write("Model training complete.")
 
+            # Evaluate the model 
+            # This is where you can add evaluation metrics and plots
+            st.write("Evaluating the model...")
+            evaluate_model(model, X, y)
+            st.write("Model evaluation complete.")
+            
+
             st.subheader("Predicted Next Day's Values:")
             model.eval()
             with torch.no_grad():
@@ -169,7 +215,7 @@ if st.button("Predict Next Day's Prices"):
 
                 # Inverse transform
                 predicted_original_data = scaler.inverse_transform(predicted_scaled_data.numpy())
-
+            
             prediction = predicted_original_data[0]
             # Display the prediction in Bold
             st.markdown(f"**Open:** {prediction[0]:,.2f}  \n"
@@ -177,6 +223,7 @@ if st.button("Predict Next Day's Prices"):
                         f"**Low:** {prediction[2]:,.2f}  \n"
                         f"**Close:** {prediction[3]:,.2f}  \n"
                         f"**Volume:** {prediction[4]:,.0f}")
+            
             
             st.success("Prediction completed successfully!")
             st.write("Note: The prediction is based on the last 60 days of data and may not reflect real market conditions.")
