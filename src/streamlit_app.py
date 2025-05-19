@@ -162,10 +162,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 st.write("Enter a stock ticker symbol to predict the next day's Open, High, Low, Close, and Volume.")
-st.write("This model uses historical stock data to predict future prices using an LSTM neural network.")
-st.write("Note: The model is trained on the fly, so it may take a few moments to get predictions.")
-st.write("Please ensure you have a stable internet connection for fetching stock data.")
-st.write("Disclaimer: This is a demo model and should not be used for actual trading decisions.")
+# st.write("This model uses historical stock data to predict future prices using an LSTM neural network.")
+# st.write("Note: The model is trained on the fly, so it may take a few moments to get predictions.")
+# st.write("Please ensure you have a stable internet connection for fetching stock data.")
+# st.write("Disclaimer: This is a demo model and should not be used for actual trading decisions.")
 # execption handling for ticker input
 try:
     # Input for stock ticker
