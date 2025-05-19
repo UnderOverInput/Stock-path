@@ -1,3 +1,6 @@
-altair
+torch
 pandas
-streamlit
+numpy
+scikit-learn
+matplotlib
+yfinance
