@@ -19,7 +19,7 @@ class StockPriceLSTM(nn.Module):
         self.num_layers = num_layers
         
         
-        self.lstm = nn.LSTM(input_size, hidden_size, num_layers,
+        self.lstm = nn.GRU(input_size, hidden_size, num_layers,
                             batch_first=True, dropout=dropout)
 
         self.fc1 = nn.Linear(hidden_size, 64)
@@ -29,9 +29,9 @@ class StockPriceLSTM(nn.Module):
 
     def forward(self, x):
         h0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
-        c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
+        #c0 = torch.zeros(self.num_layers, x.size(0), self.hidden_size).to(x.device)
 
-        out, _ = self.lstm(x, (h0,c0))
+        out, _ = self.lstm(x, (h0))
         out = out[:, -1, :]
 
         out = self.relu(self.fc1(out))
