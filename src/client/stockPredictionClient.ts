@@ -45,18 +45,51 @@ export interface PredictionOptions {
   useCache?: boolean;
 }
 
+export interface ClientConfig {
+  /** API base URL */
+  baseUrl?: string;
+  /** Request timeout in milliseconds (default: 120000 for model training) */
+  timeout?: number;
+  /** Auth token for private HF Spaces */
+  authToken?: string;
+}
+
 export class StockPredictionClient {
   private baseUrl: string;
   private defaultTimeout: number;
+  private authToken?: string;
 
   /**
    * Create a new Stock Prediction API client
-   * @param baseUrl - API base URL (e.g., "https://api.frameworx.site" or "http://localhost:8000")
-   * @param timeout - Request timeout in milliseconds (default: 120000 for model training)
+   * @param config - Client configuration or base URL string
+   *
+   * @example
+   * // Public API
+   * const client = new StockPredictionClient('https://your-space.hf.space');
+   *
+   * @example
+   * // Private HF Space with auth token
+   * const client = new StockPredictionClient({
+   *   baseUrl: 'https://iofocus-stocks-price-prediction.hf.space',
+   *   authToken: process.env.HF_TOKEN
+   * });
    */
-  constructor(baseUrl: string = 'http://localhost:8000', timeout: number = 120000) {
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.defaultTimeout = timeout;
+  constructor(config: string | ClientConfig = 'http://localhost:8000') {
+    if (typeof config === 'string') {
+      this.baseUrl = config.replace(/\/$/, '');
+      this.defaultTimeout = 120000;
+    } else {
+      this.baseUrl = (config.baseUrl || 'http://localhost:8000').replace(/\/$/, '');
+      this.defaultTimeout = config.timeout || 120000;
+      this.authToken = config.authToken;
+    }
+  }
+
+  /**
+   * Set or update the auth token
+   */
+  setAuthToken(token: string | undefined): void {
+    this.authToken = token;
   }
 
   /**
@@ -70,14 +103,21 @@ export class StockPredictionClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+    // Build headers with optional auth token
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
+
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken}`;
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+        headers,
       });
 
       if (!response.ok) {
