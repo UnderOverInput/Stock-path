@@ -2,6 +2,7 @@ torch
 pandas
 numpy
 scikit-learn
-matplotlib
 yfinance
-streamlit
+fastapi
+uvicorn[standard]
+pydantic
